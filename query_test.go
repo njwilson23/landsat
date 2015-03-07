@@ -21,9 +21,11 @@ func TestRequest(t *testing.T) {
 }
 
 func TestParseRequest(t *testing.T) {
-	q := QueryParameters{[4]float64{-71, -70, 41, 42},
-		[2]time.Time{time.Date(2015, time.February, 25, 0, 0, 0, 0, time.UTC),
-			time.Date(2015, time.March, 7, 0, 0, 0, 0, time.UTC)},
+	q := QueryParameters{[4]float64{-72, -69, 41, 42},
+		[2]time.Time{
+			time.Date(2015, time.February, 23, 0, 0, 0, 0, time.UTC),
+			time.Date(2015, time.March, 7, 0, 0, 0, 0, time.UTC),
+		},
 		Landsat8}
 
 	req, err := Request(q)
@@ -33,8 +35,6 @@ func TestParseRequest(t *testing.T) {
 
 	scenes, _ := ParseXMLBytes(req)
 	for i, s := range scenes {
-		if s.CloudCover < 1 {
-			fmt.Println(i, s)
-		}
+		fmt.Println(i, s)
 	}
 }

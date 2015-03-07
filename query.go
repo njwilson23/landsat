@@ -9,13 +9,15 @@ import (
 	"time"
 )
 
-const Landsat8 = "LANDSAT_8"
-const Landsat7 = "LANDSAT_ETM"
-const Landsat7SLC = "LANDSAT_ETM_SLC_OFF"
-const Landsat45TM = "LANDSAT_TM"
-const Landsat45MSS = "LANDSAT_MSS2"
-const Landsat13MSS = "LANDSAT_MSS1"
-const LandsatAll = "LANDSAT_COMBINED"
+const (
+	Landsat8     = "LANDSAT_8"
+	Landsat7     = "LANDSAT_ETM"
+	Landsat7SLC  = "LANDSAT_ETM_SLC_OFF"
+	Landsat45TM  = "LANDSAT_TM"
+	Landsat45MSS = "LANDSAT_MSS2"
+	Landsat13MSS = "LANDSAT_MSS1"
+	LandsatAll   = "LANDSAT_COMBINED"
+)
 
 type QueryParameters struct {
 	Bbox   [4]float64
@@ -50,7 +52,11 @@ func (s LandsatScene) Poly() geometry.Polygon {
 }
 
 func (s LandsatScene) String() string {
-	return fmt.Sprintf("Scene: %v\nURL: %v", s.SceneID, s.BrowseURL)
+	p := s.Poly()
+	bbox := p.Bbox()
+	return fmt.Sprintf("Scene: %v\nDate: %v\nURL: %v\nBbox: %v %v %v %v",
+		s.SceneID, s.StartTime, s.BrowseURL,
+		bbox[0], bbox[1], bbox[2], bbox[3])
 }
 
 type XMLReturnStatus struct {
@@ -69,12 +75,13 @@ func Request(q QueryParameters) ([]byte, error) {
 	var result []byte
 
 	const datefmt = "2006-01-02"
-	req := fmt.Sprintf(`http://earthexplorer.usgs.gov/EE/InventoryStream/latlong?north=%v&south=%v&east=%v&west=%v&sensor=%v&start_date=%v&end_date=%v`,
-		q.Bbox[3], q.Bbox[2], q.Bbox[0], q.Bbox[1],
+	request := fmt.Sprintf(
+		`http://earthexplorer.usgs.gov/EE/InventoryStream/latlong?north=%v&south=%v&east=%v&west=%v&sensor=%v&start_date=%v&end_date=%v`,
+		q.Bbox[3], q.Bbox[2], q.Bbox[1], q.Bbox[0],
 		q.Sensor,
 		q.Dates[0].Format(datefmt), q.Dates[1].Format(datefmt))
 
-	resp, err := http.Get(req)
+	resp, err := http.Get(request)
 	if err != nil {
 		fmt.Println(err)
 		return result, err
