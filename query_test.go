@@ -44,8 +44,34 @@ func TestParseRequest(t *testing.T) {
 	}
 
 	scenes, _ := ParseXMLBytes(result)
-	fmt.Println(len(scenes))
-	for i, s := range scenes {
-		fmt.Println(i, s)
+	if len(scenes) != 2 {
+		t.Fail()
 	}
+	/*for i, s := range scenes {
+		fmt.Println(i, s)
+	}*/
+}
+
+func TestParseRequestPathRow(t *testing.T) {
+
+	q := NewQuery()
+	q.ByDateRange(
+		time.Date(2014, time.February, 23, 0, 0, 0, 0, time.UTC),
+		time.Date(2015, time.March, 7, 0, 0, 0, 0, time.UTC))
+	q.ByWRSPath(8, 8).ByWRSRow(3, 3)
+	q.BySensor(Landsat8)
+
+	result, err := Request(q)
+	if err != nil {
+		fmt.Println(err)
+		t.Fail()
+	}
+
+	scenes, _ := ParseXMLBytes(result)
+	if len(scenes) != 10 {
+		t.Fail()
+	}
+	/*for i, s := range scenes {
+		fmt.Println(i, s)
+	}*/
 }

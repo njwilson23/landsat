@@ -22,11 +22,14 @@ const (
 )
 
 type QueryParameters struct {
-	Bbox    [4]float64
-	Dates   [2]time.Time
-	Sensor  string // "LANDSAT_8"
-	WRSPath int32
-	WRSRow  int32
+	Bbox          [4]float64
+	Dates         [2]time.Time
+	Sensor        string // "LANDSAT_8"
+	WRSPathStart  int32
+	WRSPathEnd    int32
+	WRSRowStart   int32
+	WRSRowEnd     int32
+	CloudCoverMax int32
 }
 
 func (q *QueryParameters) ByBbox(lon0 float64, lon1 float64, lat0 float64, lat1 float64) *QueryParameters {
@@ -44,25 +47,32 @@ func (q *QueryParameters) BySensor(sens string) *QueryParameters {
 	return q
 }
 
-func (q *QueryParameters) ByWRSPath(path int32) *QueryParameters {
-	q.WRSPath = path
+func (q *QueryParameters) ByWRSPath(path0 int32, path1 int32) *QueryParameters {
+	q.WRSPathStart = path0
+	q.WRSPathEnd = path1
 	return q
 }
 
-func (q *QueryParameters) ByWRSRow(row int32) *QueryParameters {
-	q.WRSRow = row
+func (q *QueryParameters) ByWRSRow(row0 int32, row1 int32) *QueryParameters {
+	q.WRSRowStart = row0
+	q.WRSRowEnd = row1
+	return q
+}
+
+func (q *QueryParameters) ByCloudCover(cc int32) *QueryParameters {
+	q.CloudCoverMax = cc
 	return q
 }
 
 func NewQuery() *QueryParameters {
 	q := QueryParameters{
-		[4]float64{-180, 180, -90, 90},
+		[4]float64{-180, 180, -90, 90}, // Initialize with global Bbox
 		[2]time.Time{
 			time.Date(1900, time.January, 1, 0, 0, 0, 0, time.UTC),
 			time.Date(3000, time.January, 1, 0, 0, 0, 0, time.UTC),
 		},
 		LandsatAll,
-		-1,
+		-1, -1, -1, -1, // WRS fields
 		-1}
 	return &q
 }
@@ -113,25 +123,34 @@ type XMLResponse struct {
 
 // Send a request to the Landsat Bulk Metadata server, and return the XML
 // response as bytes
+//
+// Request schema at http://earthexplorer.usgs.gov/EE/metadata.xsd
 func Request(q *QueryParameters) ([]byte, error) {
 	var result []byte
+	var request string
 
 	const datefmt = "2006-01-02"
 	//request := "http://earthexplorer.usgs.gov/EE/InventoryStream/"
-	request := fmt.Sprintf(
-		`http://earthexplorer.usgs.gov/EE/InventoryStream/latlong?north=%v&south=%v&east=%v&west=%v&sensor=%v&start_date=%v&end_date=%v`,
-		q.Bbox[3], q.Bbox[2], q.Bbox[1], q.Bbox[0],
-		q.Sensor,
-		q.Dates[0].Format(datefmt), q.Dates[1].Format(datefmt))
-
-	if q.WRSPath != -1 {
-		pathstr := fmt.Sprintf(`&wrspath=%v`, q.WRSPath)
-		request = strings.Join([]string{request, pathstr}, "")
+	if q.WRSPathStart+q.WRSPathEnd+q.WRSRowStart+q.WRSRowEnd == -4 {
+		request = fmt.Sprintf(
+			`http://earthexplorer.usgs.gov/EE/InventoryStream/latlong?north=%v&south=%v&east=%v&west=%v`,
+			q.Bbox[3], q.Bbox[2], q.Bbox[1], q.Bbox[0])
+	} else {
+		request = fmt.Sprintf(
+			`http://earthexplorer.usgs.gov/EE/InventoryStream/pathrow?start_path=%v&end_path=%v&start_row=%v&end_row=%v`,
+			q.WRSPathStart, q.WRSPathEnd, q.WRSRowStart, q.WRSRowEnd)
 	}
 
-	if q.WRSRow != -1 {
-		rowstr := fmt.Sprintf(`&wrsrow=%v`, q.WRSRow)
-		request = strings.Join([]string{request, rowstr}, "")
+	sensor := fmt.Sprintf(`&sensor=%v`, q.Sensor)
+
+	timespan := fmt.Sprintf(`&start_date=%v&end_date=%v`,
+		q.Dates[0].Format(datefmt), q.Dates[1].Format(datefmt))
+
+	request = strings.Join([]string{request, sensor, timespan}, "")
+
+	if q.CloudCoverMax != -1 {
+		cc := fmt.Sprintf(`&cc=%v`, q.CloudCoverMax)
+		request = strings.Join([]string{request, cc}, "")
 	}
 
 	resp, err := http.Get(request)
